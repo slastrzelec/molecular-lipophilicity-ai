@@ -86,7 +86,12 @@ def load_model():
             return x
     
     model = MoleculeLogPPredictor(input_size=2054)
-    model_path = r"C:\Users\slast\PYTHON\0_projekty do portfolio\07_pytorch_cl\checkpoints\best_model.pt"
+    
+    # Relative path
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(current_dir, "checkpoints", "best_model.pt")
+    
     model.load_state_dict(torch.load(model_path, map_location='cpu'))
     model.eval()
     
@@ -95,7 +100,9 @@ def load_model():
 @st.cache_resource
 def load_scaler_params():
     """Załaduj parametry skalowania"""
-    scaler_path = r"C:\Users\slast\PYTHON\0_projekty do portfolio\07_pytorch_cl\data\procced\scaler_params.pkl"
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    scaler_path = os.path.join(current_dir, "data", "procced", "scaler_params.pkl")
     with open(scaler_path, 'rb') as f:
         params = pickle.load(f)
     return params
