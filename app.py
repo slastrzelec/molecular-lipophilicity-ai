@@ -251,6 +251,17 @@ with col1:
     )
     
     st.caption("💡 Generate SMILES at: [PubChem](https://pubchem.ncbi.nlm.nih.gov/)")
+    
+    # Draw molecule using PubChem
+    if smiles_input:
+        try:
+            st.image(
+                f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/{smiles_input}/PNG",
+                caption="Molecular Structure",
+                width=300
+            )
+        except:
+            st.warning("⚠️ Could not visualize structure")
 
 with col2:
     st.subheader("🔬 Prediction Result")
