@@ -18,7 +18,6 @@ __pycache__/
 Thumbs.db
 
 # Duże pliki
-*.pt
 *.onnx
 *.pkl
 
