@@ -19,7 +19,6 @@ Thumbs.db
 
 # Duże pliki
 *.onnx
-*.pkl
 
 # Cache
 .streamlit/cache/
