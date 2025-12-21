@@ -8,7 +8,7 @@ from rdkit.Chem import AllChem
 import pickle
 import os
 
-# ===== KONFIGURACJA STREAMLIT =====
+# ===== STREAMLIT CONFIGURATION =====
 st.set_page_config(
     page_title="logP Predictor",
     page_icon="🧬",
@@ -16,24 +16,63 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS styling
+# ===== CUSTOM CSS STYLING =====
 st.markdown("""
     <style>
+    /* Main title */
     .main-title {
         text-align: center;
-        color: #1f77b4;
-        font-size: 2.5em;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px 20px;
+        border-radius: 15px;
+        font-size: 3em;
         font-weight: bold;
         margin-bottom: 10px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
     }
+    
+    /* Subtitle */
     .subtitle {
         text-align: center;
         color: #666;
-        font-size: 1.1em;
+        font-size: 1.2em;
         margin-bottom: 30px;
     }
-    .metric-box {
-        background-color: #f0f2f6;
+    
+    /* Result box */
+    .result-box {
+        padding: 25px;
+        border-radius: 12px;
+        border-left: 6px solid;
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+        margin: 15px 0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    /* Success message */
+    .success-message {
+        background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+        color: #1a5f3d;
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+    
+    /* Feature cards */
+    .feature-card {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 20px;
+        border-radius: 10px;
+        margin: 10px 0;
+        border: 2px solid #ddd;
+    }
+    
+    /* Sidebar styling */
+    .sidebar-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
         padding: 20px;
         border-radius: 10px;
         margin: 10px 0;
@@ -41,10 +80,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ===== ZAŁADUJ MODEL =====
+# ===== LOAD MODEL =====
 @st.cache_resource
 def load_model():
-    """Załaduj wytrenowany model PyTorch"""
+    """Load trained PyTorch model"""
     class MoleculeLogPPredictor(nn.Module):
         def __init__(self, input_size=2054, dropout_rate=0.3):
             super(MoleculeLogPPredictor, self).__init__()
@@ -88,7 +127,6 @@ def load_model():
     model = MoleculeLogPPredictor(input_size=2054)
     
     # Relative path
-    import os
     current_dir = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(current_dir, "checkpoints", "best_model.pt")
     
@@ -99,32 +137,29 @@ def load_model():
 
 @st.cache_resource
 def load_scaler_params():
-    """Załaduj parametry skalowania"""
-    import os
+    """Load scaling parameters"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     scaler_path = os.path.join(current_dir, "data", "procced", "scaler_params.pkl")
     with open(scaler_path, 'rb') as f:
         params = pickle.load(f)
     return params
 
-# ===== FUNKCJE =====
+# ===== FUNCTIONS =====
 MORGAN_RADIUS = 2
 MORGAN_NBITS = 2048
 
 def smiles_to_features(smiles, scaler_params):
-    """
-    Konwertuj SMILES na cechy (Morgan FP + numeric)
-    """
+    """Convert SMILES to features (Morgan FP + numeric)"""
     try:
         # Morgan fingerprint
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
-            return None, "❌ Niepoprawny SMILES"
+            return None, "❌ Invalid SMILES format"
         
         fp = AllChem.GetMorganFingerprintAsBitVect(mol, MORGAN_RADIUS, nBits=MORGAN_NBITS)
         morgan_features = np.array(fp, dtype=np.float32)
         
-        # Oblicz numeric features z cząsteczki
+        # Calculate numeric features
         try:
             from rdkit.Chem import Descriptors
             
@@ -144,7 +179,7 @@ def smiles_to_features(smiles, scaler_params):
                 rotatable_bonds
             ], dtype=np.float32)
             
-            # Skaluj numeric features
+            # Scale numeric features
             if scaler_params is not None:
                 feature_cols = scaler_params['feature_cols']
                 for i, col in enumerate(feature_cols):
@@ -155,21 +190,18 @@ def smiles_to_features(smiles, scaler_params):
             numeric_features = numeric_features_raw
             
         except:
-            # Fallback: użyj zer
             numeric_features = np.zeros(6, dtype=np.float32)
         
-        # Połącz Morgan FP + numeric features
+        # Combine Morgan FP + numeric features
         features = np.concatenate([morgan_features, numeric_features])
         
-        return features, "✅ OK"
+        return features, "✅ Processing successful"
     
     except Exception as e:
-        return None, f"❌ Błąd: {str(e)}"
+        return None, f"❌ Error: {str(e)}"
 
 def predict_logp(features, model):
-    """
-    Predykcja logP za pomocą PyTorch modelu
-    """
+    """Predict logP using PyTorch model"""
     try:
         with torch.no_grad():
             X = torch.FloatTensor(features).unsqueeze(0)
@@ -179,185 +211,180 @@ def predict_logp(features, model):
         return None
 
 def interpret_logp(logp):
-    """
-    Interpretacja wartości logP
-    """
+    """Interpret logP value"""
     if logp < -2:
-        return "🔵 Bardzo hydrofilne (rozpuszczalne w wodzie)", "#0099ff"
+        return "🔵 Highly Hydrophilic (Water-soluble)", "#0099ff", "hydrophilic"
     elif logp < 0:
-        return "🟢 Hydrofilne", "#00cc66"
+        return "🟢 Hydrophilic", "#00cc66", "hydrophilic"
     elif logp < 2:
-        return "🟡 Umiarkowana lipidowość", "#ffcc00"
+        return "🟡 Moderate Lipophilicity (OPTIMAL)", "#ffcc00", "moderate"
     elif logp < 5:
-        return "🟠 Lipidowe", "#ff9900"
+        return "🟠 Lipophilic", "#ff9900", "lipophilic"
     else:
-        return "🔴 Bardzo lipidowe (rozpuszczalne w tłuszczach)", "#ff3333"
+        return "🔴 Highly Lipophilic (Fat-soluble)", "#ff3333", "highly_lipophilic"
 
-# ===== UI =====
-st.markdown('<h1 class="main-title">🧬 logP Predictor</h1>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Predykcja lipofilowości cząsteczek na podstawie struktury SMILES</p>', 
-            unsafe_allow_html=True)
+# ===== HEADER =====
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    st.markdown('<h1 class="main-title">🧬 logP Predictor</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Predict molecular lipophilicity from SMILES structure</p>', unsafe_allow_html=True)
 
-# Załaduj model i scaler
-with st.spinner('⏳ Ładowanie modelu...'):
+# Load model and scaler
+with st.spinner('⏳ Loading model...'):
     try:
         model = load_model()
         scaler_params = load_scaler_params()
-        st.success('✅ Model załadowany (PyTorch)!')
+        st.markdown('<div class="success-message">✅ Model loaded successfully (PyTorch)</div>', unsafe_allow_html=True)
     except Exception as e:
-        st.error(f"❌ Błąd ładowania modelu: {str(e)}")
+        st.error(f"❌ Model loading error: {str(e)}")
         st.stop()
 
-# ===== SIDEBAR - INFORMACJE =====
+# ===== SIDEBAR =====
 with st.sidebar:
-    st.title("ℹ️ Informacje")
+    st.markdown("## 📊 Model Information")
     
-    st.markdown("""
-    **O aplikacji:**
-    - Model: Neural Network (PyTorch)
-    - Features: Morgan Fingerprints (2048 bitów) + 6 deskryptorów
-    - Target: logP (lipofilowość)
-    - Dokładność: R² = 0.9007 na test set
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Test R²", "0.9007")
+        st.metric("Train R²", "0.9948")
+    with col2:
+        st.metric("MAE", "0.6166")
+        st.metric("RMSE", "0.9332")
     
-    **Co to logP?**
-    - logP = log(P(octanol)/P(water))
-    - Mierzy rozpuszczalność w tłuszczach vs wodzie
-    - logP < 0: hydrofilne (rozpuszczalne w wodzie)
-    - logP > 0: lipidowe (rozpuszczalne w tłuszczach)
+    st.divider()
     
-    **Format SMILES:**
-    - CC(=O)O - octan (aspiryna)
-    - CCO - etanol
-    - c1ccccc1 - benzen
+    st.markdown("## ℹ️ About logP")
+    st.info("""
+    **logP** = log(Partition Coefficient)
+    
+    Measures molecule distribution between octanol and water.
+    
+    - **logP < 0**: Water-loving (hydrophilic)
+    - **0 < logP < 2**: Optimal for drugs
+    - **logP > 2**: Fat-loving (lipophilic)
     """)
     
     st.divider()
-    st.markdown("**Model Info:**")
-    st.write(f"- Parametry: 1,218,305")
-    st.write(f"- Train R²: 0.9948")
-    st.write(f"- Val R²: 0.9093")
-    st.write(f"- Test R²: 0.9007")
+    
+    st.markdown("## 🛠️ Technical Details")
+    st.write("""
+    - **Model**: Neural Network (PyTorch)
+    - **Features**: Morgan FP (2048) + 6 descriptors
+    - **Parameters**: 1,218,305
+    - **Training Data**: 11,612 molecules
+    """)
 
 # ===== MAIN CONTENT =====
-col1, col2 = st.columns([1, 1])
+col1, col2 = st.columns([1, 1], gap="large")
 
 with col1:
-    st.subheader("📝 Wpisz SMILES")
+    st.subheader("📝 Input SMILES")
     
-    # Przykłady
     examples = {
-        "Octan (Aspiryna)": "CC(=O)OC(CC(=O)O)C[N+](C)(C)C",
-        "Etanol": "CCO",
-        "Benzen": "c1ccccc1",
-        "Kofaina": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
-        "Toluene": "Cc1ccccc1",
-        "Aceton": "CC(=O)C",
-        "Fenol": "Oc1ccccc1",
-        "Naftalin": "c1cc2ccccc2cc1",
+        "🔬 Aspirin": "CC(=O)OC(CC(=O)O)C[N+](C)(C)C",
+        "🍸 Ethanol": "CCO",
+        "⚛️ Benzene": "c1ccccc1",
+        "☕ Caffeine": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+        "🌲 Toluene": "Cc1ccccc1",
+        "🧪 Acetone": "CC(=O)C",
+        "🌺 Phenol": "Oc1ccccc1",
+        "💎 Naphthalene": "c1cc2ccccc2cc1",
     }
     
     selected_example = st.selectbox(
-        "Lub wybierz przykład:",
-        ["---"] + list(examples.keys())
+        "Select example or enter custom SMILES:",
+        ["Custom"] + list(examples.keys())
     )
     
-    if selected_example != "---":
-        smiles_input = examples[selected_example]
-    else:
+    if selected_example == "Custom":
         smiles_input = st.text_input(
-            "Wpisz SMILES cząsteczki:",
-            placeholder="np. CC(=O)O",
+            "Enter SMILES:",
+            placeholder="e.g., CCO for ethanol",
             label_visibility="collapsed"
         )
+    else:
+        smiles_input = examples[selected_example]
     
-    st.info("💡 Możesz wygenerować SMILES na: https://pubchem.ncbi.nlm.nih.gov/")
+    st.caption("💡 Generate SMILES at: [PubChem](https://pubchem.ncbi.nlm.nih.gov/)")
 
 with col2:
-    st.subheader("🔬 Wynik Predykcji")
+    st.subheader("🔬 Prediction Result")
     
     if smiles_input:
-        # Przetwórz SMILES
+        # Process SMILES
         features, status = smiles_to_features(smiles_input, scaler_params)
         
-        st.write(f"Status: {status}")
+        st.write(f"**Status**: {status}")
         
         if features is not None:
-            # Predykcja PyTorch
+            # Predict
             logp = predict_logp(features, model)
             
             if logp is not None:
-                # Interpretacja
-                interpretation, color = interpret_logp(logp)
+                # Interpret
+                interpretation, color, category = interpret_logp(logp)
                 
-                # Wyświetl wynik
+                # Display result
                 st.markdown(f"""
-                <div class="metric-box" style="border-left: 5px solid {color};">
-                    <h2 style="color: {color}; margin: 0;">logP = {logp:.2f}</h2>
-                    <p style="font-size: 1.1em; margin: 10px 0 0 0;">{interpretation}</p>
+                <div class="result-box" style="border-color: {color};">
+                    <div style="font-size: 2.5em; color: {color}; font-weight: bold; margin-bottom: 10px;">
+                        logP = {logp:.2f}
+                    </div>
+                    <div style="font-size: 1.1em; color: {color};">
+                        {interpretation}
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Dodatkowe info
-                st.markdown("---")
-                st.write("**Szczegółowa interpretacja:**")
+                # Detailed explanation
+                st.divider()
+                st.markdown("### 📖 Detailed Interpretation")
                 
-                if logp < -2:
-                    st.write("""
-                    🔵 **Bardzo hydrofilne (rozpuszczalne w wodzie)**
-                    - Dobrze rozpuszcza się w wodzie
-                    - Słabo przechodzi przez błonę biologiczną
-                    - Słaba absorpcja żołądkowo-jelitowa
-                    """)
-                elif logp < 0:
-                    st.write("""
-                    🟢 **Hydrofilne**
-                    - Dobrze rozpuszcza się w wodzie
-                    - Umiarkowana permeabilność błonowa
-                    - Może mieć dobrą bioprzedostępność
-                    """)
-                elif logp < 2:
-                    st.write("""
-                    🟡 **Umiarkowana lipofilowość**
-                    - Optimalny balans hydrofobowości
-                    - Najczęściej pożądane dla leków
-                    - Dobra bioprzedostępność
-                    """)
-                elif logp < 5:
-                    st.write("""
-                    🟠 **Lipidowe**
-                    - Dobrze rozpuszcza się w tłuszczach
-                    - Wysoka permeabilność błonowa
-                    - Ryzyko akumulacji w tkankach tłuszczowych
-                    """)
-                else:
-                    st.write("""
-                    🔴 **Bardzo lipidowe (rozpuszczalne w tłuszczach)**
-                    - Słabo rozpuszcza się w wodzie
-                    - Wysoka permeabilność błonowa
-                    - Duże ryzyko toksyczności i efektów ubocznych
-                    """)
+                explanations = {
+                    "hydrophilic": """
+                    **Highly Water-Soluble**
+                    - ✅ Good water solubility
+                    - ✅ Poor membrane permeability
+                    - ❌ Low oral absorption
+                    - Use: Hydrophilic drugs, diagnostic agents
+                    """,
+                    "moderate": """
+                    **Optimal Balance** ⭐
+                    - ✅ Good water solubility
+                    - ✅ Good membrane permeability
+                    - ✅ High oral bioavailability
+                    - Use: Most commercial drugs
+                    """,
+                    "lipophilic": """
+                    **Fat-Soluble**
+                    - ✅ Good membrane permeability
+                    - ❌ Poor water solubility
+                    - ⚠️ Tissue accumulation risk
+                    - Use: Lipid-targeting drugs
+                    """
+                }
+                
+                st.write(explanations.get(category, ""))
             else:
-                st.error("⚠️ Nie mogę obliczyć logP")
+                st.error("❌ Could not calculate logP")
         else:
-            st.error(f"⚠️ Błąd przetwarzania: {status}")
+            st.error(f"⚠️ {status}")
     else:
-        st.info("👆 Wpisz SMILES w lewej kolumnie, aby zobaczyć predykcję")
+        st.info("👈 Enter or select SMILES to see prediction")
 
 # ===== FOOTER =====
 st.divider()
-col1, col2, col3 = st.columns(3)
 
-with col1:
-    st.markdown("**📊 Model Info**")
-    st.caption("PyTorch Neural Network")
-    st.caption("Morgan Fingerprints 2048")
+footer_col1, footer_col2, footer_col3 = st.columns(3)
 
-with col2:
-    st.markdown("**📈 Wydajność**")
-    st.caption("Test R²: 0.9007")
-    st.caption("MAE: 0.6166")
+with footer_col1:
+    st.markdown("### 📊 Architecture")
+    st.write("Input (2054) → 512 → 256 → 128 → Output (1)")
 
-with col3:
-    st.markdown("**🔗 Linki**")
-    st.caption("[GitHub](https://github.com)")
-    st.caption("[PubChem](https://pubchem.ncbi.nlm.nih.gov/)")
+with footer_col2:
+    st.markdown("### 🎯 Performance")
+    st.write("**Test R²**: 0.9007  \n**MAE**: 0.6166")
+
+with footer_col3:
+    st.markdown("### 🔗 Links")
+    st.write("[GitHub](https://github.com/slastrzelec/molecular-lipophilicity-ai) | [PubChem](https://pubchem.ncbi.nlm.nih.gov/)")
