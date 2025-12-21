@@ -19,7 +19,6 @@ st.set_page_config(
 # ===== CUSTOM CSS STYLING =====
 st.markdown("""
     <style>
-    /* Main title */
     .main-title {
         text-align: center;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -32,7 +31,6 @@ st.markdown("""
         box-shadow: 0 8px 16px rgba(0,0,0,0.2);
     }
     
-    /* Subtitle */
     .subtitle {
         text-align: center;
         color: #666;
@@ -40,7 +38,6 @@ st.markdown("""
         margin-bottom: 30px;
     }
     
-    /* Result box */
     .result-box {
         padding: 25px;
         border-radius: 12px;
@@ -51,31 +48,12 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     
-    /* Success message */
     .success-message {
         background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
         color: #1a5f3d;
         padding: 15px 20px;
         border-radius: 10px;
         margin-bottom: 20px;
-    }
-    
-    /* Feature cards */
-    .feature-card {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        padding: 20px;
-        border-radius: 10px;
-        margin: 10px 0;
-        border: 2px solid #ddd;
-    }
-    
-    /* Sidebar styling */
-    .sidebar-section {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 20px;
-        border-radius: 10px;
-        margin: 10px 0;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -101,7 +79,6 @@ def load_model():
             self.dropout3 = nn.Dropout(dropout_rate)
             
             self.fc4 = nn.Linear(128, 1)
-            
             self.relu = nn.ReLU()
         
         def forward(self, x):
@@ -121,18 +98,14 @@ def load_model():
             x = self.dropout3(x)
             
             x = self.fc4(x)
-            
             return x
     
     model = MoleculeLogPPredictor(input_size=2054)
-    
-    # Relative path
     current_dir = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(current_dir, "checkpoints", "best_model.pt")
     
     model.load_state_dict(torch.load(model_path, map_location='cpu'))
     model.eval()
-    
     return model
 
 @st.cache_resource
@@ -151,7 +124,6 @@ MORGAN_NBITS = 2048
 def smiles_to_features(smiles, scaler_params):
     """Convert SMILES to features (Morgan FP + numeric)"""
     try:
-        # Morgan fingerprint
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
             return None, "❌ Invalid SMILES format"
@@ -159,7 +131,6 @@ def smiles_to_features(smiles, scaler_params):
         fp = AllChem.GetMorganFingerprintAsBitVect(mol, MORGAN_RADIUS, nBits=MORGAN_NBITS)
         morgan_features = np.array(fp, dtype=np.float32)
         
-        # Calculate numeric features
         try:
             from rdkit.Chem import Descriptors
             
@@ -171,15 +142,10 @@ def smiles_to_features(smiles, scaler_params):
             rotatable_bonds = Descriptors.NumRotatableBonds(mol)
             
             numeric_features_raw = np.array([
-                mol_weight,
-                polar_area,
-                complexity,
-                h_donors,
-                h_acceptors,
-                rotatable_bonds
+                mol_weight, polar_area, complexity,
+                h_donors, h_acceptors, rotatable_bonds
             ], dtype=np.float32)
             
-            # Scale numeric features
             if scaler_params is not None:
                 feature_cols = scaler_params['feature_cols']
                 for i, col in enumerate(feature_cols):
@@ -188,13 +154,10 @@ def smiles_to_features(smiles, scaler_params):
                     numeric_features_raw[i] = (numeric_features_raw[i] - mean) / scale
             
             numeric_features = numeric_features_raw
-            
         except:
             numeric_features = np.zeros(6, dtype=np.float32)
         
-        # Combine Morgan FP + numeric features
         features = np.concatenate([morgan_features, numeric_features])
-        
         return features, "✅ Processing successful"
     
     except Exception as e:
@@ -229,7 +192,7 @@ with col2:
     st.markdown('<h1 class="main-title">🧬 logP Predictor</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">Predict molecular lipophilicity from SMILES structure</p>', unsafe_allow_html=True)
 
-# Load model and scaler
+# Load model
 with st.spinner('⏳ Loading model...'):
     try:
         model = load_model()
@@ -280,30 +243,12 @@ col1, col2 = st.columns([1, 1], gap="large")
 with col1:
     st.subheader("📝 Input SMILES")
     
-    examples = {
-        "🔬 Aspirin": "CC(=O)OC(CC(=O)O)C[N+](C)(C)C",
-        "🍸 Ethanol": "CCO",
-        "⚛️ Benzene": "c1ccccc1",
-        "☕ Caffeine": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
-        "🌲 Toluene": "Cc1ccccc1",
-        "🧪 Acetone": "CC(=O)C",
-        "🌺 Phenol": "Oc1ccccc1",
-        "💎 Naphthalene": "c1cc2ccccc2cc1",
-    }
-    
-    selected_example = st.selectbox(
-        "Select example or enter custom SMILES:",
-        ["Custom"] + list(examples.keys())
+    smiles_input = st.text_input(
+        "Enter SMILES:",
+        value="CCO",
+        placeholder="e.g., CCO for ethanol",
+        label_visibility="collapsed"
     )
-    
-    if selected_example == "Custom":
-        smiles_input = st.text_input(
-            "Enter SMILES:",
-            placeholder="e.g., CCO for ethanol",
-            label_visibility="collapsed"
-        )
-    else:
-        smiles_input = examples[selected_example]
     
     st.caption("💡 Generate SMILES at: [PubChem](https://pubchem.ncbi.nlm.nih.gov/)")
 
@@ -311,20 +256,16 @@ with col2:
     st.subheader("🔬 Prediction Result")
     
     if smiles_input:
-        # Process SMILES
         features, status = smiles_to_features(smiles_input, scaler_params)
         
         st.write(f"**Status**: {status}")
         
         if features is not None:
-            # Predict
             logp = predict_logp(features, model)
             
             if logp is not None:
-                # Interpret
                 interpretation, color, category = interpret_logp(logp)
                 
-                # Display result
                 st.markdown(f"""
                 <div class="result-box" style="border-color: {color};">
                     <div style="font-size: 2.5em; color: {color}; font-weight: bold; margin-bottom: 10px;">
@@ -336,7 +277,6 @@ with col2:
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Detailed explanation
                 st.divider()
                 st.markdown("### 📖 Detailed Interpretation")
                 
@@ -369,8 +309,6 @@ with col2:
                 st.error("❌ Could not calculate logP")
         else:
             st.error(f"⚠️ {status}")
-    else:
-        st.info("👈 Enter or select SMILES to see prediction")
 
 # ===== FOOTER =====
 st.divider()
