@@ -1,5 +1,7 @@
 # 🧬 logP Predictor
 
+[![Tests](https://github.com/slastrzelec/molecular-lipophilicity-ai/actions/workflows/tests.yml/badge.svg)](https://github.com/slastrzelec/molecular-lipophilicity-ai/actions/workflows/tests.yml)
+
 Deep learning application predicting molecular lipophilicity (logP) from SMILES structure, using a PyTorch neural network trained on hybrid molecular fingerprint + descriptor features.
 
 **Live demo:** https://molecular-lipophilicity-ai.streamlit.app/
