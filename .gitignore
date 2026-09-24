@@ -7,7 +7,6 @@ __pycache__/
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb
 
 # IDE
 .vscode/
@@ -22,3 +21,4 @@ Thumbs.db
 
 # Cache
 .streamlit/cache/
+_to_delete/

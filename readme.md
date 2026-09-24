@@ -1,284 +1,121 @@
 # 🧬 logP Predictor
 
-Deep Learning application for predicting molecular lipophilicity (logP) based on SMILES structure, using a neural network model trained with PyTorch.
+Deep learning application predicting molecular lipophilicity (logP) from SMILES structure, using a PyTorch neural network trained on hybrid molecular fingerprint + descriptor features.
 
-## 📋 About the Project
+**Live demo:** https://molecular-lipophilicity-ai.streamlit.app/
 
-**logP (Partition Coefficient)** is the logarithm of the distribution coefficient of a molecule between octanol and water. It's a key descriptor in chemistry, pharmacy, and biotechnology, determining:
+## About the project
 
-- Water vs fat solubility
+**logP (partition coefficient)** is the logarithm of a molecule's distribution between octanol and water — a key descriptor in chemistry, pharmacy and biotechnology, driving:
+
+- Water vs. fat solubility
 - Biological membrane permeability
 - Drug bioavailability
 - Molecular hydrophobicity
 
-## 🎯 Model Characteristics
+## Model
 
 | Parameter | Value |
-|-----------|-------|
-| **Model** | Neural Network (PyTorch) |
-| **Features** | Morgan Fingerprints (2048 bits) + 6 molecular descriptors |
-| **Training Data** | 11,612 molecules from PubChem |
-| **Test R²** | 0.9007 |
-| **MAE** | 0.6166 |
-| **RMSE** | 0.9332 |
-| **Model Parameters** | 1,218,305 |
+|---|---|
+| Model | 4-layer MLP (PyTorch) |
+| Architecture | 2054 → 512 → 256 → 128 → 1, BatchNorm + ReLU + Dropout(0.3) per layer |
+| Parameters | 1,218,305 |
+| Features | 2048-bit Morgan fingerprints + 6 physicochemical descriptors |
+| Training data | 11,612 molecules from PubChem |
+| Training | 72/100 epochs (early stopping), 8m 51s |
 
-## 📊 Model Architecture
+**Results:**
+
+| Split | R² | MAE |
+|---|---|---|
+| Train | 0.9948 | 0.1411 |
+| Validation | 0.9093 | 0.6045 |
+| Test | 0.9007 | 0.6166 |
+
+The train/validation/test gap is the expected signature of a ~1.2M-parameter model on ~11.6k molecules — addressed with dropout, batch norm and early stopping (training stopped at epoch 72/100, before the gap widened further) rather than chased away with more capacity.
+
+## Tech stack
+
+- **Modeling:** PyTorch, scikit-learn (preprocessing), RDKit (Morgan fingerprints, descriptors)
+- **App:** Streamlit
+- **Data processing:** Pandas, NumPy
+- **Visualization:** Matplotlib, Seaborn
+- **Deployment:** Streamlit Community Cloud
+
+## Project structure
 
 ```
-Input (2054)
-    ↓
-FC1 (512) → BatchNorm → ReLU → Dropout(0.3)
-    ↓
-FC2 (256) → BatchNorm → ReLU → Dropout(0.3)
-    ↓
-FC3 (128) → BatchNorm → ReLU → Dropout(0.3)
-    ↓
-FC4 (1) → Output (logP)
+molecular-lipophilicity-ai/
+├── app.py                          # Streamlit application (the deployed entrypoint)
+├── EDA.ipynb                       # Exploratory data analysis
+├── pytorch_logP_pred.ipynb         # Feature engineering, model training, evaluation
+├── fixing.ipynb                    # PyTorch → ONNX model export
+├── checkpoints/
+│   └── best_model.pt               # Trained PyTorch model (best epoch)
+├── data/
+│   ├── raw/RAW.csv                 # Raw PubChem data
+│   └── procced/                    # Preprocessed data + scaler params
+├── visualisation/                  # EDA and training plots
+├── requirements.txt
+└── LICENSE
 ```
 
-## 🚀 Installation
+## How it works
 
-### Requirements
-- Python 3.8+
-- Conda (optional)
+1. Enter a SMILES string (manually, or pick from the built-in examples)
+2. RDKit validates the structure and computes a 2048-bit Morgan fingerprint plus 6 molecular descriptors (molecular weight, TPSA, H-bond donors/acceptors, rotatable bonds, etc.)
+3. The trained MLP predicts logP from the combined 2054-dim feature vector
+4. The app shows the predicted value with a color-coded lipophilicity interpretation
 
-### Installation Steps
+| logP | Interpretation |
+|---|---|
+| < -2 | Very hydrophilic 🔵 |
+| -2 to 0 | Hydrophilic 🟢 |
+| 0 to 2 | Moderate (optimal for oral drugs) 🟡 |
+| 2 to 5 | Lipophilic 🟠 |
+| > 5 | Highly lipophilic 🔴 |
 
-1. **Clone the repository:**
+## Running locally
+
 ```bash
-git clone https://github.com/yourusername/logp-predictor.git
-cd logp-predictor
-```
-
-2. **Create environment (optional):**
-```bash
-conda create -n logp-env python=3.10
-conda activate logp-env
-```
-
-3. **Install dependencies:**
-```bash
+git clone https://github.com/slastrzelec/molecular-lipophilicity-ai.git
+cd molecular-lipophilicity-ai
 pip install -r requirements.txt
-```
-
-## 🏃 Running the Application
-
-### Locally
-```bash
 streamlit run app.py
 ```
 
-The application will open in your browser at `http://localhost:8501`
-
-### On Streamlit Cloud
-```bash
-streamlit run app.py --server.port 8501
-```
-
-## 📁 Project Structure
-
-```
-logp-predictor/
-├── app.py                          # Streamlit application
-├── requirements.txt                # Dependencies
-├── README.md                       # This file
-├── .gitignore                      # Git ignore rules
-├── checkpoints/
-│   └── best_model.pt              # Trained PyTorch model
-├── data/
-│   ├── raw/
-│   │   └── RAW.csv                # Raw data
-│   └── procced/
-│       ├── data_preprocessed.csv  # Preprocessed data
-│       └── scaler_params.pkl      # Scaling parameters
-├── visualisation/                  # Plots and visualizations
-│   ├── 01_xlogp_distribution.png
-│   ├── 02_xlogp_outliers_analysis.png
-│   ├── 03_xlogp_before_after_outliers.png
-│   ├── 04_features_scaling_comparison.png
-│   ├── 05_morgan_fingerprints_analysis.png
-│   ├── 06_data_split_distribution.png
-│   └── 07_training_results.png
-└── notebooks/
-    ├── EDA.ipynb                  # Exploratory Data Analysis
-    └── pytorch_logP_pred.ipynb    # Model training
-```
-
-## 🔬 How to Use the Application
-
-1. **Choose or enter SMILES:**
-   - Enter SMILES manually
-   - Or select from examples (aspirin, ethanol, benzene, etc.)
-   - Generate SMILES at: https://pubchem.ncbi.nlm.nih.gov/
-
-2. **The application calculates:**
-   - Morgan Fingerprint (2048 bits)
-   - Molecular descriptors (Molecular Weight, TPSA, etc.)
-   - logP prediction using the model
-
-3. **You will see:**
-   - logP value
-   - Color-coded interpretation (🔵🟢🟡🟠🔴)
-   - Detailed explanation
-
-## 📈 Result Interpretation
-
-| logP | Interpretation | Color |
-|------|----------------|-------|
-| < -2 | Very hydrophilic | 🔵 |
-| -2 to 0 | Hydrophilic | 🟢 |
-| 0 to 2 | Moderate lipophilicity (OPTIMAL) | 🟡 |
-| 2 to 5 | Lipophilic | 🟠 |
-| > 5 | Highly lipophilic | 🔴 |
-
-## 🔧 Technology Stack
-
-### Backend
-- **PyTorch** - Deep Learning framework
-- **RDKit** - Cheminformatics library
-- **NumPy/Pandas** - Data processing
-- **scikit-learn** - Preprocessing
-
-### Frontend
-- **Streamlit** - Web application framework
-- **Matplotlib/Seaborn** - Visualizations
-
-### Cloud
-- **Streamlit Community Cloud** - Hosting
-
-## 📊 Training the Model
-
-To train the model from scratch:
+## Training the model
 
 ```bash
 jupyter notebook pytorch_logP_pred.ipynb
 ```
 
-The notebook includes:
-- Exploratory Data Analysis (EDA)
-- Feature engineering (Morgan Fingerprints)
-- Model training
-- Evaluation and visualizations
-- Hyperparameter tuning
+Covers EDA, Morgan fingerprint + descriptor feature engineering, model training with early stopping, and evaluation.
 
-## 📥 Dataset
-
-Data sourced from **PubChem** (https://pubchem.ncbi.nlm.nih.gov/)
-
-- **11,612 molecules** with logP values
-- **Features:** Molecular Weight, Polar Area, Complexity, H-Bond Donors/Acceptors, Rotatable Bonds
-- **Preprocessing:** StandardScaler normalization, outlier removal
-
-## 🎓 Training Results
+## Example SMILES
 
 ```
-Training Duration: 8m 51s
-Epochs: 72/100 (Early Stopping)
-
-Metrics:
-├── Train R²: 0.9948
-├── Val R²: 0.9093
-└── Test R²: 0.9007
-
-Errors:
-├── Train MAE: 0.1411
-├── Val MAE: 0.6045
-└── Test MAE: 0.6166
+Aspirin:      CC(=O)Oc1ccccc1C(=O)O
+Ethanol:      CCO
+Benzene:      c1ccccc1
+Caffeine:     CN1C=NC2=C1C(=O)N(C(=O)N2C)C
+Toluene:      Cc1ccccc1
+Acetone:      CC(=O)C
+Phenol:       Oc1ccccc1
+Naphthalene:  c1cc2ccccc2cc1
 ```
 
-## 🚀 Deployment
+## Dataset
 
-### Streamlit Cloud
+Source: [PubChem](https://pubchem.ncbi.nlm.nih.gov/) — 11,612 molecules with experimental/computed logP values. Preprocessing: outlier removal, StandardScaler normalization.
 
-1. **Push to GitHub:**
-```bash
-git add .
-git commit -m "Deploy logP predictor"
-git push origin main
-```
+## References
 
-2. **Deploy on Streamlit Cloud:**
-   - Go to https://streamlit.io/cloud
-   - Log in with GitHub
-   - Select repository
-   - Deploy!
+- Rogers, D. & Hahn, M. (2010). Extended-connectivity fingerprints.
+- Wildman, S. A. & Crippen, G. M. (1999). Prediction of physicochemical parameters by atomic contributions.
+- Paszke, A. et al. (2019). PyTorch: An imperative style, high-performance deep learning library.
+- [RDKit documentation](https://www.rdkit.org/)
 
-### Docker (optional)
+## License
 
-```bash
-docker build -t logp-predictor .
-docker run -p 8501:8501 logp-predictor
-```
-
-## 📝 SMILES Examples
-
-```
-Aspirin (Acetic acid derivative):   CC(=O)OC(CC(=O)O)C[N+](C)(C)C
-Ethanol:                            CCO
-Benzene:                            c1ccccc1
-Caffeine:                           CN1C=NC2=C1C(=O)N(C(=O)N2C)C
-Toluene:                            Cc1ccccc1
-Acetone:                            CC(=O)C
-Phenol:                             Oc1ccccc1
-Naphthalene:                        c1cc2ccccc2cc1
-```
-
-## 📚 References
-
-- Morgan Fingerprints: Rogers & Hahn (2010)
-- logP Prediction: Wildman & Crippen (1999)
-- PyTorch: Paszke et al. (2019)
-- RDKit: Landrum et al.
-
-## 🤝 Contributing
-
-To contribute improvements:
-
-1. Fork the repository
-2. Create a branch (`git checkout -b feature/improvement`)
-3. Commit changes (`git commit -m 'Add improvement'`)
-4. Push to branch (`git push origin feature/improvement`)
-5. Open a Pull Request
-
-## 📄 License
-
-MIT License - see LICENSE file
-
-## 👨‍💻 Author
-
-[Your Name]
-- GitHub: [@yourusername](https://github.com/yourusername)
-- LinkedIn: [Your Profile]
-- Email: your.email@example.com
-
-## 🙏 Acknowledgments
-
-- **PubChem** - for the dataset
-- **RDKit** - for cheminformatics tools
-- **PyTorch** - for deep learning framework
-- **Streamlit** - for web framework
-
-## 📞 Support
-
-If you have questions or found a bug:
-- Open an Issue on GitHub
-- Send an email
-- Contact via LinkedIn
-
-## 🔮 Future Improvements
-
-- [ ] Batch prediction support
-- [ ] Export results to CSV
-- [ ] Molecular structure visualization
-- [ ] Model uncertainty estimation
-- [ ] Hyperparameter optimization UI
-- [ ] Model versioning
-- [ ] FastAPI endpoint
-- [ ] Docker support
-- [ ] Multi-language support
-- [ ] Comparison with other models
-
----
-
-**Last Updated:** December 2025
+MIT License.
