@@ -1,12 +1,6 @@
 import streamlit as st
-import torch
-import torch.nn as nn
-import numpy as np
-import pandas as pd
-from rdkit import Chem
-from rdkit.Chem import AllChem
-import pickle
-import os
+
+import logp_utils
 
 # ===== STREAMLIT CONFIGURATION =====
 st.set_page_config(
@@ -58,133 +52,20 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ===== LOAD MODEL =====
+# ===== LOAD MODEL & CHEMISTRY LOGIC (logp_utils.py) =====
 @st.cache_resource
 def load_model():
-    """Load trained PyTorch model"""
-    class MoleculeLogPPredictor(nn.Module):
-        def __init__(self, input_size=2054, dropout_rate=0.3):
-            super(MoleculeLogPPredictor, self).__init__()
-            
-            self.fc1 = nn.Linear(input_size, 512)
-            self.bn1 = nn.BatchNorm1d(512)
-            self.dropout1 = nn.Dropout(dropout_rate)
-            
-            self.fc2 = nn.Linear(512, 256)
-            self.bn2 = nn.BatchNorm1d(256)
-            self.dropout2 = nn.Dropout(dropout_rate)
-            
-            self.fc3 = nn.Linear(256, 128)
-            self.bn3 = nn.BatchNorm1d(128)
-            self.dropout3 = nn.Dropout(dropout_rate)
-            
-            self.fc4 = nn.Linear(128, 1)
-            self.relu = nn.ReLU()
-        
-        def forward(self, x):
-            x = self.fc1(x)
-            x = self.bn1(x)
-            x = self.relu(x)
-            x = self.dropout1(x)
-            
-            x = self.fc2(x)
-            x = self.bn2(x)
-            x = self.relu(x)
-            x = self.dropout2(x)
-            
-            x = self.fc3(x)
-            x = self.bn3(x)
-            x = self.relu(x)
-            x = self.dropout3(x)
-            
-            x = self.fc4(x)
-            return x
-    
-    model = MoleculeLogPPredictor(input_size=2054)
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(current_dir, "checkpoints", "best_model.pt")
-    
-    model.load_state_dict(torch.load(model_path, map_location='cpu'))
-    model.eval()
-    return model
+    return logp_utils.load_model()
+
 
 @st.cache_resource
 def load_scaler_params():
-    """Load scaling parameters"""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    scaler_path = os.path.join(current_dir, "data", "procced", "scaler_params.pkl")
-    with open(scaler_path, 'rb') as f:
-        params = pickle.load(f)
-    return params
+    return logp_utils.load_scaler_params()
 
-# ===== FUNCTIONS =====
-MORGAN_RADIUS = 2
-MORGAN_NBITS = 2048
 
-def smiles_to_features(smiles, scaler_params):
-    """Convert SMILES to features (Morgan FP + numeric)"""
-    try:
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            return None, "❌ Invalid SMILES format"
-        
-        fp = AllChem.GetMorganFingerprintAsBitVect(mol, MORGAN_RADIUS, nBits=MORGAN_NBITS)
-        morgan_features = np.array(fp, dtype=np.float32)
-        
-        try:
-            from rdkit.Chem import Descriptors
-            
-            mol_weight = Descriptors.MolWt(mol)
-            polar_area = Descriptors.TPSA(mol)
-            complexity = Descriptors.BertzCT(mol)
-            h_donors = Descriptors.NumHDonors(mol)
-            h_acceptors = Descriptors.NumHAcceptors(mol)
-            rotatable_bonds = Descriptors.NumRotatableBonds(mol)
-            
-            numeric_features_raw = np.array([
-                mol_weight, polar_area, complexity,
-                h_donors, h_acceptors, rotatable_bonds
-            ], dtype=np.float32)
-            
-            if scaler_params is not None:
-                feature_cols = scaler_params['feature_cols']
-                for i, col in enumerate(feature_cols):
-                    mean = scaler_params['mean'][col]
-                    scale = scaler_params['scale'][col]
-                    numeric_features_raw[i] = (numeric_features_raw[i] - mean) / scale
-            
-            numeric_features = numeric_features_raw
-        except:
-            numeric_features = np.zeros(6, dtype=np.float32)
-        
-        features = np.concatenate([morgan_features, numeric_features])
-        return features, "✅ Processing successful"
-    
-    except Exception as e:
-        return None, f"❌ Error: {str(e)}"
-
-def predict_logp(features, model):
-    """Predict logP using PyTorch model"""
-    try:
-        with torch.no_grad():
-            X = torch.FloatTensor(features).unsqueeze(0)
-            logp = model(X).item()
-        return logp
-    except Exception as e:
-        return None
-
-def interpret_logp(logp):
-    """Interpret logP value"""
-    if logp < -2:
-        return "🔵 Highly Hydrophilic (Water-soluble)", "#0099ff", "hydrophilic"
-    elif logp < 0:
-        return "🟢 Hydrophilic", "#00cc66", "hydrophilic"
-    elif logp < 2:
-        return "🟡 Moderate Lipophilicity (OPTIMAL)", "#ffcc00", "moderate"
-    elif logp < 5:
-        return "🟠 Lipophilic", "#ff9900", "lipophilic"
-    else:
-        return "🔴 Highly Lipophilic (Fat-soluble)", "#ff3333", "highly_lipophilic"
+smiles_to_features = logp_utils.smiles_to_features
+predict_logp = logp_utils.predict_logp
+interpret_logp = logp_utils.interpret_logp
 
 # ===== HEADER =====
 col1, col2, col3 = st.columns([1, 2, 1])
