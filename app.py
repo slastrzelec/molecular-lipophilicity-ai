@@ -72,6 +72,12 @@ col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     st.markdown('<h1 class="main-title">🧬 logP Predictor</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">Predict molecular lipophilicity from SMILES structure</p>', unsafe_allow_html=True)
+    st.info(
+        "**What is logP?** It's the partition coefficient -- how strongly a molecule prefers "
+        "octanol (fat-like) over water. It matters because it drives a drug's solubility, "
+        "how well it crosses biological membranes, and its overall bioavailability. "
+        "Values roughly between 0 and 2 are usually considered optimal for oral drugs."
+    )
 
 # Load model
 with st.spinner('⏳ Loading model...'):
