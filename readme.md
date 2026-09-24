@@ -6,6 +6,8 @@ Deep learning application predicting molecular lipophilicity (logP) from SMILES 
 
 **Live demo:** https://molecular-lipophilicity-ai.streamlit.app/
 
+![logP Predictor App](screenshot.png)
+
 ## About the project
 
 **logP (partition coefficient)** is the logarithm of a molecule's distribution between octanol and water — a key descriptor in chemistry, pharmacy and biotechnology, driving:
