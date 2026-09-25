@@ -45,12 +45,16 @@ The train/validation/test gap is the expected signature of a ~1.2M-parameter mod
 - **Data processing:** Pandas, NumPy
 - **Visualization:** Matplotlib, Seaborn
 - **Deployment:** Streamlit Community Cloud
+- **Testing:** pytest, GitHub Actions CI
 
 ## Project structure
 
 ```
 molecular-lipophilicity-ai/
-├── app.py                          # Streamlit application (the deployed entrypoint)
+├── app.py                          # Streamlit application (thin UI wrapper)
+├── logp_utils.py                   # Model + chemistry/feature-engineering logic (unit-tested, no Streamlit dependency)
+├── tests/
+│   └── test_logp_utils.py          # pytest suite (features, prediction, edge cases, end-to-end regression)
 ├── EDA.ipynb                       # Exploratory data analysis
 ├── pytorch_logP_pred.ipynb         # Feature engineering, model training, evaluation
 ├── fixing.ipynb                    # PyTorch → ONNX model export
@@ -60,7 +64,9 @@ molecular-lipophilicity-ai/
 │   ├── raw/RAW.csv                 # Raw PubChem data
 │   └── procced/                    # Preprocessed data + scaler params
 ├── visualisation/                  # EDA and training plots
-├── requirements.txt
+├── .github/workflows/tests.yml     # CI: runs the test suite on every push/PR to main
+├── requirements.txt                # runtime dependencies
+├── requirements-dev.txt            # + pytest, for running the test suite locally/in CI
 └── LICENSE
 ```
 
@@ -86,6 +92,13 @@ git clone https://github.com/slastrzelec/molecular-lipophilicity-ai.git
 cd molecular-lipophilicity-ai
 pip install -r requirements.txt
 streamlit run app.py
+```
+
+## Running the tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v
 ```
 
 ## Training the model
