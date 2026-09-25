@@ -18,6 +18,7 @@ Thumbs.db
 
 # Duże pliki
 *.onnx
+data/raw/RAW.csv
 
 # Cache
 .streamlit/cache/

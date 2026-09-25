@@ -61,8 +61,8 @@ molecular-lipophilicity-ai/
 ├── checkpoints/
 │   └── best_model.pt               # Trained PyTorch model (best epoch)
 ├── data/
-│   ├── raw/RAW.csv                 # Raw PubChem data
-│   └── procced/                    # Preprocessed data + scaler params
+│   ├── raw/                        # Raw PubChem data (not in repo — see Dataset section)
+│   └── procced/                    # Preprocessed data + scaler params (included)
 ├── visualisation/                  # EDA and training plots
 ├── .github/workflows/tests.yml     # CI: runs the test suite on every push/PR to main
 ├── requirements.txt                # runtime dependencies
@@ -125,6 +125,8 @@ Naphthalene:  c1cc2ccccc2cc1
 ## Dataset
 
 Source: [PubChem](https://pubchem.ncbi.nlm.nih.gov/) — 11,612 molecules with experimental/computed logP values. Preprocessing: outlier removal, StandardScaler normalization.
+
+The raw 92 MB `data/raw/RAW.csv` is not included in this repo (kept out of version control to avoid bloating repo size/clone time). The preprocessed, ready-to-use dataset used for training is already included at `data/procced/`. To reproduce data collection from scratch, download the PubChem logP dataset and place it at `data/raw/RAW.csv` before running the training notebook.
 
 ## References
 
